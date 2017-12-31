@@ -3,7 +3,7 @@ a data visualization project created for a community foundation in Minneapolis
 
 Description:
 
-# How to use it.
+## How to use it.
 
 Marker. Each marker represents a Headwaters grantee. The highlighted area represents the geographic area that they serve.
 a marker clusterer Marker Clusters. These icons signify that there are multiple map markers in a tight geographical area. The number in the center tells how many markers are in the cluster. If you click on the cluster, the map will automatically zoom to display the markers in more detail.
@@ -16,7 +16,7 @@ If you select Reset View, the map will zoom out to include all of Minnesota.
  
 Note: Not all of our data is complete. If there is no highlighted area associated with a marker, we may not have access to detailed information about the geographic area where they serve. Let us know if you want to update your information or you think you found an inaccuracy!
 
-# Our purpose.
+## Our purpose.
 
 We want to show you a snapshot of the work that our grantees have done and how we have worked to support them. Our goal was to place our grantees geographically within the communities they serve and show the diversity of organizations working from statewide to neighborhood-level.
 
