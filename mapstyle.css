@@ -1,0 +1,63 @@
+#which-map{
+	width: 50%;
+	height: 2em;
+	text-align: center;
+	color: #17263c;
+	font-weight: bold;
+	border: none;
+	text-overflow: scroll;
+}
+br{
+	clear: both;
+}
+#map {
+    height: 100%;
+    width: 50%;
+    float: left;
+    display: inline;
+}
+#box-container {
+	display: block;	
+}
+#granteelistbox, #infobox {
+	box-sizing: border-box;
+	height: 40em;
+	width: 20%;
+	min-width: 21em;
+	font-family: 'Tahoma';
+	font-weight: 100;
+	color: #FFF;
+	padding-left: 30px;
+	padding-right: 30px;
+	overflow: scroll;
+	overflow-x: hide;
+	background-color: #17263c;
+}
+#granteelistbox {
+	float: left;
+	z-index: 2;
+}
+#infobox {
+	float: right;
+	display: none;
+	z-index: 1;
+	padding: 30px;
+}
+hr{
+	border-top: 1px solid #fff;
+}
+.descr-type-year{
+	display: none;
+}
+#map-content-box{
+	box-sizing: content-box;
+	height: 40em;
+	background-color: rgba(106,209,227, 0.2);
+}
+#top-body{
+	padding: 10px;
+}
+.marker {
+	width: 25px;
+}
+
