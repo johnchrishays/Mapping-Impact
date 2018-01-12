@@ -1,0 +1,545 @@
+var coordinates = require('./static coords/mnboundsexact.json');
+var goodhueBoundaries = require('./static coords/goodhue.json');
+var granteeData = require('./static grantee objs/granteeobjs.json');
+var counties = require('./static coords/Minnesota Counties.json');
+//keys in granteeData: Grantee Name, Address, Year Grant Received, Type of Grant Received, $ amt for grant, POC led?, Have a map from them?, Lat/Lng
+
+var initCenter = {lat: 46.459, lng: -93.685};
+
+var HeadwatersBlue = '#6AD1E3'; //rgb(106,209,227)
+var iconShape = {
+    coords: [21,0,48,0,48,45,21,45,25,0],
+    type: 'poly'
+  };
+
+var initBounds;
+var lastSelection = ''; //a string to tell us which marker is selected
+var selected = false; //a bool to tell us if a marker is currently selected
+var infoboxSet = false; // a bool to tell us if the infobox has been set already so it doesn't get set multiple
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////                               INITMAP                            //////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+function initMap() {
+      var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 6,
+          center: initCenter,
+          mapTypeControl: false,
+          streetViewControl: false,
+          styles: [
+                  {elementType: 'geometry', stylers: [{color: '#242f3e'}]},
+                  {elementType: 'labels.text.stroke', stylers: [{color: '#242f3e'}]},
+                  {elementType: 'labels.text.fill', stylers: [{color: '#746855'}]},
+                  {
+                    featureType: 'administrative.locality',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#d59563'}]
+                  },
+                  {
+                    featureType: 'poi',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#d59563'}]
+                  },
+                  {
+                    featureType: 'poi.park',
+                    elementType: 'geometry',
+                    stylers: [{color: '#263c3f'}]
+                  },
+                  {
+                    featureType: 'poi.park',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#6b9a76'}]
+                  },
+                  {
+                    featureType: 'road',
+                    elementType: 'geometry',
+                    stylers: [{color: '#38414e'}]
+                  },
+                  {
+                    featureType: 'road',
+                    elementType: 'geometry.stroke',
+                    stylers: [{color: '#212a37'}]
+                  },
+                  {
+                    featureType: 'road',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#9ca5b3'}]
+                  },
+                  {
+                    featureType: 'road.highway',
+                    elementType: 'geometry',
+                    stylers: [{color: '#746855'}]
+                  },
+                  {
+                    featureType: 'road.highway',
+                    elementType: 'geometry.stroke',
+                    stylers: [{color: '#1f2835'}]
+                  },
+                  {
+                    featureType: 'road.highway',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#f3d19c'}]
+                  },
+                  {
+                    featureType: 'transit',
+                    elementType: 'geometry',
+                    stylers: [{color: '#2f3948'}]
+                  },
+                  {
+                    featureType: 'transit.station',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#d59563'}]
+                  },
+                  {
+                    featureType: 'water',
+                    elementType: 'geometry',
+                    stylers: [{color: '#17263c'}]
+                  },
+                  {
+                    featureType: 'water',
+                    elementType: 'labels.text.fill',
+                    stylers: [{color: '#515c6d'}]
+                  },
+                  {
+                    featureType: 'water',
+                    elementType: 'labels.text.stroke',
+                    stylers: [{color: '#17263c'}]
+                  }
+                ]
+      });
+
+      var granteeDataFULL = granteeData;
+      var pocArray = [];
+      var markerArray=[]; 
+
+      var icon = {
+          url: 'http://www.arcencieldeco.com.tn/wp-content/uploads/2015/10/icon.png',
+          scaledSize: new google.maps.Size(73, 50),
+          origin: new google.maps.Point(0,0),
+          anchor: new google.maps.Point(36.5,50)};
+
+      var pocIcon = {
+          url: 'http://www.arcencieldeco.com.tn/wp-content/uploads/2015/10/icon.png',
+          scaledSize: new google.maps.Size(73, 50),
+          origin: new google.maps.Point(0,0),
+          anchor: new google.maps.Point(36.5,50)};
+
+      var clusterIcon = {
+          textColor: '#fff',
+          //textSize: 14,
+          url: 'https://raw.githubusercontent.com/googlemaps/v3-utility-library/master/markerclusterer/images/m1.png', 
+          height: 52, 
+          width: 53
+        };
+
+      var clusterStyles = [
+          //3 different types of markers: small, medium, and large are all set to look the same
+          clusterIcon, clusterIcon, clusterIcon
+        ];
+      var mcOptions = {
+          styles: clusterStyles,
+          maxZoom: 15,
+          gridSize: 30,
+          imageSizes: [50, 50, 50]
+        };
+
+      // I'm not using granteeDataFULL['marker'] bc you can't access a whole array 
+      // of just one array like that and I need to pass in an array to the map() method in addMarkers
+      for(i=0;i<granteeDataFULL.length;i++){
+        granteeDataFULL[i]['poly']=[];
+        granteeDataFULL[i]['Geography'] = granteeDataFULL[i]['Geography'].split("; ");
+        granteeDataFULL[i]['Year Grant Received'] = granteeDataFULL[i]['Year Grant Received'].split("; ");
+        granteeDataFULL[i]['Type of Grant Received'] = granteeDataFULL[i]['Type of Grant Received'].split("; ");
+        for(j=0;j<granteeDataFULL[i]['Type of Grant Received'].length;j++){
+            if(granteeDataFULL[i]['Type of Grant Received'][j]==='CIG') granteeDataFULL[i]['Type of Grant Received'][j]='Community Innovation Grant';
+            if(granteeDataFULL[i]['Type of Grant Received'][j]==='GP') granteeDataFULL[i]['Type of Grant Received'][j]='Giving Project';
+            if(granteeDataFULL[i]['Type of Grant Received'][j]==='FSC') granteeDataFULL[i]['Type of Grant Received'][j]='Fund of the Sacred Circle';
+            if(granteeDataFULL[i]['Type of Grant Received'][j]==='SCF') granteeDataFULL[i]['Type of Grant Received'][j]='Social Change Fund';
+            if(granteeDataFULL[i]['Type of Grant Received'][j]==='EFBL') granteeDataFULL[i]['Type of Grant Received'][j]='Emergency Fund for Black Lives';
+        }
+        granteeDataFULL[i]['Description'] = granteeDataFULL[i]['Description'].split("; ");
+        if(granteeDataFULL[i]['POC led?']==='TRUE') pocArray.push(granteeDataFULL[i]);
+        }
+      
+      var markerClusterer = addMarkers(granteeDataFULL, map, markerArray, icon, mcOptions); 
+      addPolys(granteeDataFULL, map);
+      setGranteeListBox(granteeDataFULL);
+      addListeners(granteeDataFULL, markerClusterer.getMarkers(), map);
+      addNameListeners(granteeDataFULL, markerClusterer.getMarkers(), map);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////
+      ///////////////                 INIT BUTTONS                                            /////////////
+      /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      var resetButtonControlDiv = document.createElement('div');
+      var resetView = new ResetView(resetButtonControlDiv, map);
+      resetButtonControlDiv.index = 1;
+      map.controls[google.maps.ControlPosition.TOP_RIGHT].push(resetButtonControlDiv);
+
+
+      var pocControlDiv = document.createElement('div');
+      var pocMap = new PocMap(pocControlDiv, granteeDataFULL, pocArray, map, markerArray, markerClusterer, icon, pocIcon, mcOptions); 
+      pocControlDiv.index = 1;
+      map.controls[google.maps.ControlPosition.TOP_RIGHT].push(pocControlDiv);
+}
+//////////////////////////////////////////////////////////////////////////////////////
+///////////                 ADD MARKERS                                  /////////////
+//////////////////////////////////////////////////////////////////////////////////////
+function addMarkers(granteeArray, map, markerArray, icon, mcOptions){
+  markerArray = [];
+  for(i=0;i<granteeArray.length;i++){
+        markerArray.push(granteeArray[i]['Lat/Lng']);
+      }
+      markerArray = markerArray.map(function(location, i){
+        return new google.maps.Marker({
+          position: location,
+          icon: icon,
+          iconShape: iconShape
+        });
+      });
+  return new MarkerClusterer(map, markerArray, mcOptions);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+///////////                 ADD POLYS                                    /////////////
+//////////////////////////////////////////////////////////////////////////////////////
+function addPolys(array, map){
+//array is passed in as granteeDataFULL
+
+//Minnesota state borders
+  var mnBoudaries = new google.maps.Polygon({
+      paths: coordinates,
+      strokeColor: HeadwatersBlue,
+      strokeOpacity: 0.8,
+      strokeWeight: 10,
+      fillColor: HeadwatersBlue,
+      fillOpacity: 0,
+      zIndex: 2
+  });
+  mnBoudaries.setMap(map);
+
+  ////// sets up polys for each grantee //////
+  for(i=0; i<array.length; i++){
+    var geographyLength = array[i]['Geography'].length;
+    //SPECIAL CASE: Statewide
+    if(array[i]['Geography'][0]==='Statewide'){
+      var tempStatewide = new google.maps.Polygon({
+        paths: coordinates,
+        strokeColor: HeadwatersBlue, //rgb(231,76,60)
+        strokeOpacity: 1,
+        strokeWeight: 1,
+        fillColor: HeadwatersBlue, //rgb(231,76,60)
+        fillOpacity: 0.5,
+      });
+      array[i]['poly'].push(tempStatewide);
+      array[i]['poly'][0].setMap(null);
+    }
+    for(j=0;j<geographyLength;j++){
+        addAPoly(i, j, array, map);
+    }
+    }
+
+}
+function addAPoly(i,j, array, map){//searches through all counties to find the one that matches array[i]['Geography'][j]
+  for(n=0; n<counties.length; n++){
+    var temp = 0;
+    if(array[i]['Geography'][j]===counties[n]['name']) {
+      temp = new google.maps.Polygon({
+        paths: counties[n]['coords'],
+        strokeOpacity: 0,
+        strokeWeight: 1,
+        fillColor: HeadwatersBlue, //rgb(231,76,60)
+        fillOpacity: 0.5
+      });
+      array[i]['poly'].push(temp);
+      if(array[i]['poly'][j]) array[i]['poly'][j].setMap(null);
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+///////////                 BUTTONS                                      /////////////
+//////////////////////////////////////////////////////////////////////////////////////
+function ResetView(controlDiv, map) {
+
+        // Set CSS for the control border.
+        var controlUI = document.createElement('div');
+        controlUI.style.backgroundColor = '#fff';
+        controlUI.style.border = '2px solid #fff';
+        controlUI.style.borderRadius = '1px';
+        controlUI.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
+        controlUI.style.cursor = 'pointer';
+        controlUI.style.marginBottom = '22px';
+        controlUI.style.textAlign = 'center';
+        controlUI.style.marginRight = '5px';
+        controlUI.style.marginTop = '5px';
+        controlUI.title = 'Click to reset the view';
+        controlDiv.appendChild(controlUI);
+
+        // Set CSS for the control interior.
+        var controlText = document.createElement('div');
+        controlText.style.color = 'rgb(25,25,25)';
+        controlText.style.fontFamily = 'Tahoma,Arial,sans-serif';
+        controlText.style.fontSize = '12px';
+        controlText.style.paddingTop = '5px';
+        controlText.style.paddingBottom = '5px';
+        controlText.style.paddingLeft = '5px';
+        controlText.style.paddingRight = '5px';
+        controlText.innerHTML = 'Reset View';
+        controlUI.appendChild(controlText);
+
+        var boundsCounter = 1;
+        google.maps.event.addListener(map, 'bounds_changed', function() {
+          if(boundsCounter == 1){
+            initBounds = map.getBounds();
+            boundsCounter++;
+          } 
+        })
+
+        // Setup the click event listeners: simply set the map to Chicago.
+        controlUI.addEventListener('click', function() {
+            map.fitBounds(initBounds);
+            map.setZoom(6);
+        });
+}
+
+function PocMap(controlDiv, granteeArray, pocArray, map, markers, clusterer, icon, pocIcon, mcOptions) {
+
+        // Set CSS for the control border.
+        var controlUI = document.createElement('div');
+        controlUI.style.backgroundColor = '#fff';
+        controlUI.style.border = '2px solid #fff';
+        controlUI.style.borderRadius = '1px';
+        controlUI.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
+        controlUI.style.cursor = 'pointer';
+        controlUI.style.marginBottom = '22px';
+        controlUI.style.textAlign = 'center';
+        controlUI.style.marginRight = '5px';
+        controlUI.style.marginTop = '5px';
+        controlUI.title = 'Click to see organizations led by People of Color';
+        controlDiv.appendChild(controlUI);
+
+        // Set CSS for the control interior.
+        var controlText = document.createElement('div');
+        controlText.style.color = 'rgb(25,25,25)';
+        controlText.style.fontFamily = 'Tahoma,Arial,sans-serif';
+        controlText.style.fontSize = '12px';
+        controlText.style.paddingTop = '5px';
+        controlText.style.paddingBottom = '5px';
+        controlText.style.paddingLeft = '5px';
+        controlText.style.paddingRight = '5px';
+        controlText.innerHTML = 'Click to view Organizations led by People of Color';
+        controlUI.appendChild(controlText);
+
+        var pocCounter = 0;
+
+        controlUI.addEventListener('click', function() {
+          clusterer.clearMarkers();
+          if(pocCounter%2==0){
+            controlText.innerHTML = 'Click to see All Organizations';
+            deselectAll(granteeArray, markers);
+            markers = [];
+            clusterer = addMarkers(pocArray, map, markers, pocIcon, mcOptions);
+            addListeners(pocArray, clusterer.getMarkers(), map);
+            setGranteeListBox(pocArray);
+            addNameListeners(pocArray, clusterer.getMarkers(), map);
+            document.getElementById('which-map').innerHTML = "<h4>Organizations led by People of Color</h4>";
+          }
+          else{
+            controlText.innerHTML = 'Click to see Organizations led by People of Color';
+            deselectAll(pocArray, markers);
+            markers = [];
+            clusterer = addMarkers(granteeArray, map, markers, icon, mcOptions);
+            addListeners(granteeArray, clusterer.getMarkers(), map);
+            setGranteeListBox(granteeArray);
+            addNameListeners(granteeArray, clusterer.getMarkers(), map);
+            document.getElementById('which-map').innerHTML = "<h4>All Organizations</h4>";
+          }
+          pocCounter++;
+      });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+///////////                 MAP INTERACTIVITY                            /////////////
+//////////////////////////////////////////////////////////////////////////////////////
+//adds all google maps listeners
+function addListeners(array, markers, map){
+  for(i=0;i<array.length;i++){ //this for loop is to cycle through each of the grantee objs
+    addListens(i, array, markers, map); 
+  }
+}
+
+//adds all of the google listeners to make one marker interactive
+function addListens(granteePos, array, markers, map){
+    //REMEMBER: I run **showHideInfo(undefined, "show", granteePos, array, map);** 
+    //once outside of the polyPos for-loops to make sure that every single marker has a listener, 
+    //even if it doesn't have a poly attached
+    google.maps.event.addListener(markers[granteePos], 'mouseover', function(){
+        if(selected==false){
+          showHideInfo(array[granteePos]['poly'][0], "show", granteePos, array, map); 
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "show", granteePos, array, map);
+        }
+        if(markers[granteePos]!=lastSelection){
+          for(polyPos=0; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            if(array[granteePos]['poly'][polyPos]) array[granteePos]['poly'][polyPos].setMap(map);
+        }
+    });
+    google.maps.event.addListener(markers[granteePos], 'mouseout', function(){
+        if(selected==false) deselectAll(array, map); 
+        if(markers[granteePos]!=lastSelection){
+
+          for(polyPos=0; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            if(array[granteePos]['poly'][polyPos]) array[granteePos]['poly'][polyPos].setMap(null);
+        }
+    });
+    google.maps.event.addListener(markers[granteePos],'click', function() {
+        var currentSelection = markers[granteePos];
+        if(selected == false){
+          showHideInfo(array[granteePos]['poly'][0], "show", granteePos, array, map); 
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "show", granteePos, array, map);
+          lastSelection = markers[granteePos];
+          selected = true;
+        }
+        else if(currentSelection === lastSelection){
+          showHideInfo(array[granteePos]['poly'][0], "hide", granteePos, array, map); 
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "hide", granteePos, array, map);
+          selected = false;
+        }
+        else{
+          deselectAll(array, map);
+          showHideInfo(array[granteePos]['poly'][0], "show", granteePos, array, map);
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "show", granteePos, array, map);
+          lastSelection = markers[granteePos];
+          selected = true;
+        }
+    });
+}
+
+//adds all menu listeners
+function addNameListeners(array, markers, map){
+  for(i=0;i<array.length;i++){
+    addNameListens(i, array, markers, map);
+  }
+}
+
+//adds all menu listeners to make one marker interactive
+function addNameListens(granteePos, array, markers, map){
+    //REMEMBER: I run **showHideInfo(undefined, "show", granteePos, array, map);** 
+    //once outside of the polyPos for-loops to make sure that every single marker has a listener, 
+    //even if it doesn't have a poly attached
+    var element = document.getElementById('para'+granteePos);
+    element.addEventListener("mouseover", function(){
+        if(selected==false){
+          showHideInfo(array[granteePos]['poly'][0], "show", granteePos, array, map); 
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "show", granteePos, array, map);
+        }
+    });
+    element.addEventListener("mouseout", function(){
+        if(selected==false) deselectAll(array, map); 
+    });
+    element.addEventListener("click", function(){
+        var currentSelection = markers[granteePos];
+        if(selected == false){
+          showHideInfo(array[granteePos]['poly'][0], "show", granteePos, array, map);
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "show", granteePos, array, map);
+          lastSelection = markers[granteePos];
+          selected = true;
+        }
+        else if(currentSelection === lastSelection){
+          showHideInfo(array[granteePos]['poly'][0], "hide", granteePos, array, map);
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "hide", granteePos, array, map);
+          selected = false;
+        }
+        else{
+          deselectAll(array, map);
+          showHideInfo(array[granteePos]['poly'][0], "show", granteePos, array, map);
+          for(polyPos=1; polyPos<array[granteePos]['poly'].length; polyPos++) 
+            showHideInfo(array[granteePos]['poly'][polyPos], "show", granteePos, array, map);
+          lastSelection = markers[granteePos];
+          selected = true;
+        }
+    });
+}
+
+function showHideInfo(poly, str, granteePos, array, map){
+  if (str === "show"){
+    if (poly) poly.setMap(map);
+    setInfobox(granteePos, array);
+    document.getElementById('para'+granteePos).style.fontWeight = '900';
+  }
+  else if (str === "hide"){
+    if (poly) poly.setMap(null);
+    document.getElementById('infobox').style.display = 'none';
+    document.getElementById('para'+granteePos).style.fontWeight = '100';
+  }
+  else console.log("Error: you didn't put in SHOW or HIDE into second param");
+}
+
+function deselectAll(array, map){
+  for(i=0;i<array.length; i++){
+    document.getElementById('para'+i).style.fontWeight = '100';
+    for(j=0;j<array[i]['poly'].length;j++){
+      showHideInfo(array[i]['poly'][j], "hide", i, array, map);
+    }
+  }
+  for(j=0;j<document.getElementsByClassName('descr-type-year').length;j++){
+    document.getElementsByClassName('descr-type-year')[j].style.display = 'none';
+  }
+  selected = false;
+  infoboxSet = false;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+///////////                 BOX CONTENT                                  /////////////
+//////////////////////////////////////////////////////////////////////////////////////
+function setInfobox(pos, array){
+  if(infoboxSet==false){
+    for(i=0;i<array[pos]['Type of Grant Received'].length;i++){
+      document.getElementById('org name').innerHTML = array[pos]['Grantee Name'] +" <br>";
+      document.getElementById('address').innerHTML = array[pos]['Address']+"</br></br>";
+      if(array[pos]['Description'][i]){
+        if(array[pos]['Type of Grant Received'][i] === 'Community Innovation Grant')
+          document.getElementsByClassName('description')[i].innerHTML = "<strong>Project Description: </strong>" + array[pos]['Description'][i]+" <br><br>";
+        else
+          document.getElementsByClassName('description')[i].innerHTML = "<strong>Description: </strong>" + array[pos]['Description'][i]+" <br><br>";
+      }
+      else{
+        document.getElementsByClassName('description')[i].innerHTML = "<strong>Description: </strong>See above. <br><br>";
+      }
+      document.getElementsByClassName('grant type')[i].innerHTML = array[pos]['Type of Grant Received'][i]+" <br><br>";
+      document.getElementsByClassName('grant year')[i].innerHTML = array[pos]['Year Grant Received'][i]+" <br><br>";
+      document.getElementsByClassName('descr-type-year')[i].style.display = 'block';
+    }
+    document.getElementById('infobox').style.display = 'block';
+    infoboxSet = true;
+  }
+}
+function setGranteeListBox(array){
+  var names = "";
+  for(i=0;i<array.length;i++){
+    names = names + "<p id= para"+i+">"+array[i]['Grantee Name'] + "<br/></p>";
+  }
+  document.getElementById('granteelistbox').innerHTML = names;
+}
+
+
+
+window.initMap = initMap;
+var s = document.createElement('script');
+s.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyDN1Cyr9vplNuUCSAZo3wVEBJ9hTsiYrE8&callback=initMap";
+s.type = "text/javascript";
+s.async = false;
+document.getElementsByTagName('head')[0].appendChild(s);
+var t = document.createElement('script');
+t.src = "../v3-utility-library/markerclusterer/src/markerclusterer.js";
+t.type = "text/javascript";
+document.getElementsByTagName('head')[0].appendChild(t);
+

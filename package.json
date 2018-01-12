@@ -1,0 +1,28 @@
+{
+  "name": "chris-hays",
+  "version": "1.0.0",
+  "description": "",
+  "main": "generator/generateCoordinates.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "generate": "cd generator && node generateCoordinates.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sean-hackett/chris-hays.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sean-hackett/chris-hays/issues"
+  },
+  "homepage": "https://github.com/sean-hackett/chris-hays#readme",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "csvtojson": "^1.1.7",
+    "webpack": "^3.2.0"
+  }
+}
